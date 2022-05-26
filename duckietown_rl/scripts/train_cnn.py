@@ -1,6 +1,7 @@
 import pickle
 import random
 import resource
+import cv2
 import gym_duckietown
 import numpy as np
 import torch
@@ -8,16 +9,9 @@ import gym
 import os
 
 from args import get_ddpg_args_train
-from ddpg import DDPG
+from ddpg import DDPG, writer
 from utils import seed, evaluate_policy, ReplayBuffer
-from wrappers import (
-    NormalizeWrapper,
-    ImgWrapper,
-    DtRewardWrapper,
-    ActionWrapper,
-    ResizeWrapper,
-    SteeringToWheelVelWrapper,
-)
+
 from env import launch_env
 
 policy_name = "DDPG"
@@ -72,10 +66,11 @@ total_timesteps = 0
 timesteps_since_eval = 0
 episode_num = 0
 done = True
-episode_reward = None
-env_counter = 0
+episode_reward = 0
+reward = 0
 
 while total_timesteps < args.max_timesteps:
+    print("timestep: {} | reward: {}".format(total_timesteps, reward))
 
     if done:
         print(f"Done @ {total_timesteps}")
@@ -97,13 +92,14 @@ while total_timesteps < args.max_timesteps:
                 policy.save(file_name, directory="./pytorch_models")
             np.savez("./results/{}.npz".format(file_name), evaluations)
 
-        # Reset environment
-        env_counter += 1
+        # Reset environment and write logs to Tensorboard
         obs = env.reset()
         done = False
-        episode_reward = 0
         episode_timesteps = 0
+        if total_timesteps > args.start_timesteps and episode_num != 0:
+            writer.add_scalar('Episode reward', episode_reward, episode_num)
         episode_num += 1
+        episode_reward = 0
 
     # Select action randomly or according to policy
     if total_timesteps < args.start_timesteps:
@@ -117,10 +113,11 @@ while total_timesteps < args.max_timesteps:
 
     # Perform action
     new_obs, reward, done, _ = env.step(action)
-    if (
-        action[0] < 0.001
-    ):  # Penalise slow actions: helps the bot to figure out that going straight > turning in circles
-        reward = 0
+    print(f"Action was: {action}")
+    # Save images
+    if total_timesteps > args.start_timesteps:
+        img_array = cv2.cvtColor(env.render(mode="rgb_array"),cv2.COLOR_RGB2BGR)
+        cv2.imwrite(f"/home/ca98/workspace/duckiebot-LF/duckietown_rl/results/pictures/step{total_timesteps}.jpg", img_array)
 
     if episode_timesteps >= args.env_timesteps:
         done = True

@@ -5,8 +5,7 @@ from wrappers import (
     ImgWrapper,
     DtRewardWrapper,
     ActionWrapper,
-    ResizeWrapper,
-    SteeringToWheelVelWrapper,
+    ResizeWrapper
 )
 
 
@@ -33,8 +32,6 @@ def launch_env(id=None):
     env = ResizeWrapper(env)
     env = NormalizeWrapper(env)
     env = ImgWrapper(env)  # to make the images from 160x120x3 into 3x160x120
-    env = SteeringToWheelVelWrapper(env)
-    env = ActionWrapper(env)
-    # env = DtRewardWrapper(env)
+    env = DtRewardWrapper(env)
 
     return env
